@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="YTConverter">
+    <meta name="description" content="YTConverter">
+    <title>YTMp3</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link href="/static/css/general.css" rel="stylesheet">
+    <link rel="shortcut icon" type="image/png" href="/static/mp3videoConverterIcon.png">
+
+    {% block CustomCSS %}{% endblock %}
+    
+</head>
+
+<body>
+    <nav class="navbar navbar-custom navbar-fixed-top" role="navigation" id="topNav">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle navLink" data-toggle="collapse" data-target=".navbar-main-collapse">
+                    <i class="fa fa-bars"></i>
+                </button>
+                <a class="navbar-brand" href="{% url 'YTApp:ytHome'%}">
+                    <div>
+                        <img id="ytLogoHome" class="img-responsive" src="/static/ytRedBlue5.png" alt="YT">
+                    </div>
+                </a>
+            </div>
+            <!-- Navigation links, for toggling -->
+            <div class="collapse navbar-collapse navbar-right navbar-main-collapse" style="overflow-x: hidden;background-color:#F9F9F9;">
+                <ul class="nav navbar-nav">
+                    <li>
+                        <noscript style="color:white">JavaScript is disabled.</noscript>
+                    </li>
+                    {% block NavItems %}
+                        <li>
+                            <div class="dropdown">
+                                <a style="background-color:transparent;" class="dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i id="settingsIcon" class="navLink glyphicon glyphicon-option-vertical"></i>
+                                </a>
+                                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                    <div style="padding:10px" class="dropdown-item" href="#">Future Link</div>
+                                </div>
+                            </div>
+                        </li>
+                        {% if user.is_authenticated %}
+                        <li>
+                            <a class="ripple navLink" id="logout-link" href="{% url 'YTApp:logout_user' %}" title="">Log out</a>
+                        </li>
+                        {% else %}
+                        <li>
+                            <a class="ripple navLink" id="login-link" href="{% url 'YTApp:login_user' %}" title="">Log in</a>
+                        </li>
+                        {% endif %}
+                    {% endblock %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div id="page-content-wrapper" class=>
+        {% if user.is_authenticated %}
+        <div class="container" id="theContainer">
+            <div class="row">
+                <div class="col-lg-offset-2 col-lg-8 col-xs-12" style="text-align:center;padding:10px 0;">
+                    <form id="radarContainer" autocomplete="off" action="">
+                        <input id="mp4Tomp3" type="radio" name="gender" value="male" checked="checked"> Mp4 to Mp3 &nbsp &nbsp<br>
+                        <div id="submitDownload" class="glyphicon glyphicon-download-alt">Download</div>
+                    </form>
+                    <input onClick="this.setSelectionRange(0, this.value.length)" id="ytSearch"  placeholder="Search keywords or paste YT URL" style="width:100%" type="text" data-list="#suggestedYTurl">
+                    <ul id="suggestedYTurl"></ul>
+                </div>
+            </div>
+            <div class="row" id="Insertmp3Here"></div>
+            <div class="row">
+                <div class="col-lg-12 text-center" id="descriptionBox">
+                </div>
+            </div>
+        </div>
+        <!-- Modal -->
+        <div class="modal fade" id="myModal" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                      <button type="button" class="close" data-dismiss="modal">&times;</button>
+                      <h4 class="modal-title">Modal Header</h4>
+                    </div>
+                    <div class="modal-body">
+                      <p id="modalContent">This is a small modal.</p>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        {% block content %}{% endblock %}
+    {% endif %}
+
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+    {% if user.is_authenticated %}
+    <script>
+    $(document).ready(function () {
+        var typingTimer;                    // Timer identifier.
+        var doneTypingInterval = 300;       // Time in ms.
+        var $ytSearch = $('#ytSearch');
+        var $sugYTurl = $('#suggestedYTurl');
+        var $modalContent = $('#modalContent');
+        var debounced = true;               // Ready to run function onEnterOrButton if true.
+        var debounceInterval = 3000;        // 3 second wait to send another query.
+        var x_ytSearch = document.getElementById("ytSearch");
+
+
+        var debounceSetToTrue = function(){
+            debounced = true;
+        }
+
+        setup();
+        function setup(){
+            $ytSearch.focus();
+
+            $ytSearch.click(function(){
+                $sugYTurl.css("display", "inherit");
+            });
+
+            $ytSearch.on('keyup', function () {
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(doneTyping, doneTypingInterval);
+            });
+
+            $ytSearch.on('keydown', function () {
+                clearTimeout(typingTimer);
+            });
+
+
+            $("#suggestedYTurl").hover(function(){
+                $(this).css("background-color", "rgba(0, 0, 0, 0.59)");
+            }, function(){
+                $(this).css("display", "none");
+            });
+
+
+
+            $('#submitDownload').click(function(){
+                if (debounced){
+                    onEnterOrButton();
+                    debounced = false;
+                    setTimeout(debounceSetToTrue, debounceInterval);
+                }
+            })
+
+            x_ytSearch.onkeydown = function(event) {
+                if (event.keyCode == 13) {  // Enter Key
+                    if(debounced){
+                        debounced = false;
+                        onEnterOrButton();
+                        setTimeout(debounceSetToTrue, debounceInterval);
+                    }
+                }
+            }
+
+        }
+
+        function doneTyping () {
+            var ytQuery = $ytSearch.val();
+
+            if (document.getElementById(ytQuery) || !debounced){
+
+            } else{
+                var https = ytQuery.startsWith("https://");
+                var httpsShort = ytQuery.startsWith("https://youtu.be/");
+                if (https){
+                    var ytUrlV = $ytSearch.val();
+                    if (httpsShort){
+                        var yturl  = ytUrlV.replace("https://youtu.be/", "");
+                    } else{
+                        var yturl = ytUrlV.replace("https://www.youtube.com/watch?v=", "");
+                    }
+
+                    $('#descriptionBox').append('<div class="col-xs-12 col-sm-6 col-md-6 col-lg-4 "> <div class="card-panel hoverable pyCard"> <div class="wrapper card-image embed-responsive embed-responsive-16by9"> <div class="youtube" id="' + yturl + '" data-embed= "' + yturl + '"> <div class="play-button"></div> </div> </div> </div> </div>')
+
+                    var ytQEl = document.getElementById(yturl);
+
+                    var source = "https://img.youtube.com/vi/"+ yturl +"/mqdefault.jpg";  // https://www.binarymoon.co.uk/2014/03/using-youtube-thumbnails/
+
+                    var image = new Image();
+                    image.src = source;
+                    image.addEventListener( "load", function() {
+                        ytQEl.appendChild( image );
+                    }());
+
+                    ytQEl.addEventListener( "click", function() {
+                        var iframe = document.createElement( "iframe" );
+                        iframe.setAttribute( "frameborder", "0" );
+                        iframe.setAttribute( "allowfullscreen", "" );
+                        iframe.setAttribute( "src", "https://www.youtube.com/embed/"+ yturl +"?rel=0&showinfo=0&autoplay=1" );
+
+                        this.innerHTML = "";
+                        this.appendChild( iframe );
+                    });
+                } else if (ytQuery === ''){
+                    // console.log('empty box');
+                } else{  // If a keyword search
+                    var ajaxYturl = '{% url "YTApp:ytAutoSearch" %}';
+                    $.ajax({
+                        type:"GET",
+                        url: ajaxYturl,
+                        dataType : 'json',
+                        async: true,
+                        data: { csrfmiddlewaretoken: '{{csrf_token}}', ytQuery: ytQuery },
+                        success: function(json){
+                             $('#suggestedYTurl').html('');
+                             for (i = 0; i < json.myQueryList.length; i++) {
+                                    $('#suggestedYTurl').append('<li class="options" id=' + i + ' value=https://www.youtube.com' + json.myQueryList[i] + '>' + ytQuery + '-' + i + ' Title:' + json.myTitleList[i] +'</li>');
+                              };
+
+                        $('.options').click(function(){
+                            var $ytUrlVal = $(this).attr('value');
+                            var $thisId = $(this).attr('id');
+                            var thisEl = document.getElementById($thisId);
+                            var ytQId = $ytUrlVal;
+
+                            if (document.getElementById(ytQId)){
+                                console.log('Element exist already.');
+                            } else{
+                                $ytSearch.val($ytUrlVal);
+                                var yturl = $ytUrlVal.replace("https://www.youtube.com/watch?v=", "");
+                                $('#descriptionBox').append('<div class="col-xs-12 col-sm-6 col-md-6 col-lg-4 "> <div class="card-panel hoverable pyCard"> <div class="wrapper card-image embed-responsive embed-responsive-16by9"> <div class="youtube" id="' + ytQId + '" data-embed= "' + yturl + '"> <div class="play-button"></div> </div> </div> </div> </div>')
+
+                                var ytQEl = document.getElementById(ytQId);
+
+                                var source = "https://img.youtube.com/vi/"+ yturl +"/mqdefault.jpg";  // https://www.binarymoon.co.uk/2014/03/using-youtube-thumbnails/
+
+                                var image = new Image();
+                                var image2 = new Image();
+                                image.src = source;
+                                image2.src = source;
+                                image.addEventListener( "load", function() {
+                                    ytQEl.appendChild( image );
+                                    thisEl.appendChild( image2 );
+                                }( i ) );
+
+                                ytQEl.addEventListener( "click", function() {
+                                    var iframe = document.createElement( "iframe" );
+                                    iframe.setAttribute( "frameborder", "0" );
+                                    iframe.setAttribute( "allowfullscreen", "" );
+                                    iframe.setAttribute( "src", "https://www.youtube.com/embed/"+ yturl +"?rel=0&showinfo=0&autoplay=1" );
+
+                                    this.innerHTML = "";
+                                    this.appendChild( iframe );
+                                });
+
+                                thisEl.addEventListener( "click", function() {
+                                    var iframe = document.createElement( "iframe" );
+                                    iframe.setAttribute( "frameborder", "0" );
+                                    iframe.setAttribute( "allowfullscreen", "" );
+                                    iframe.setAttribute( "src", "https://www.youtube.com/embed/"+ yturl +"?rel=0&showinfo=0&autoplay=1" );
+
+                                    this.innerHTML = "";
+                                    this.appendChild( iframe );
+                                });
+                            }
+                        });
+                    $("#suggestedYTurl").css("display", "inherit")
+                    }
+                })
+            };
+            }
+        }
+
+        $("#suggestedYTurl").hover(function(){
+        $(this).css("background-color", "rgba(0, 0, 0, 0.59)");
+        }, function(){
+        $(this).css("display", "none");
+        });
+
+        // WHEN PRESS ENTER or BUTTON. DWNl MP3 AJAX.
+        var onEnterOrButton = function(){
+            var ytURL = $ytSearch.val();
+            var https = ytURL.startsWith("https://");
+            if (https){
+                var hasQstnMark = ytURL.includes("?");
+                if (hasQstnMark){
+                    var a = ytURL.split('?')[0];
+                    var j = ytURL.split('?')[1];
+                    ytURL = a + 'insertQuestionMark' + j
+                }else{
+                    var a = '';
+                    var j = '';
+                };
+                if ($('#mp4Tomp3').is(':checked')) {
+                    $('#myModal').modal('show');
+                    $modalContent.text('Downloading: takes between half to double the length of the video. Return later if needed and it should be faster.');
+                    var ajaxYturl = "ytmp3/" + ytURL;
+                    $.ajax({
+                        type:"GET",
+                        url: ajaxYturl,
+                        dataType : 'json',
+                        async: true,
+                        data: { csrfmiddlewaretoken: '{{csrf_token}}', a: a, j:j },
+                        success: function(json){
+                            $('#Insertmp3Here').append('<div class="audioBox col-lg-offset-0 col-lg-4 col-md-offset-0 col-md-6 col-sm-offset-0 col-sm-6 col-xs-offset-1 col-xs-10"><div class="mp3Title">' + json.mp3Name + '</div><audio controls> <source src="/media/ytmp3s/'+ json.mp3Name +'" type="audio/ogg"> <source src="/media/ytmp3s/'+ json.mp3Name +'" type="audio/mpeg"> Your browser does not support the audio element. </audio></div>');
+                        }
+                    })
+                }
+            } else{
+                // console.log(ytURL);
+            }
+        }
+    });
+</script>
+    {% else %}
+
+    {% endif %}
+
+    {% block loginJS %}{% endblock %}
+    {% block registrationJS %}{% endblock %}
+</body>
+</html>
+
